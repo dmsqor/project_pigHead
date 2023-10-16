@@ -1,0 +1,177 @@
+#define S0 3
+#define S1 4
+#define S2 12
+#define S3 13
+#define sensorOut 2
+
+#include<Servo.h>
+#include<SoftwareSerial.h>//mp3
+#include<DFRobotDFPlayerMini.h>//mp3
+/*
+int cds(void);
+int color(void);
+int audio(int);
+*/
+SoftwareSerial mySoftwareSerial(10, 11); // 소프트웨어 시리얼 용 핀 지정
+DFRobotDFPlayerMini myDFPlayer;              // 객체 생성
+
+Servo servo1;
+Servo servo2;
+
+const int cds_pin = A0;   // 조도센서의 핀 번호
+const int motorPin = 5; // 모터를 제어하기 위한 핀 번호
+
+int threshold = 500; // 돈이 들어왔다고 판단할 조도센서 값의 임계치
+int i;//특정 폴더내의 파일 개수
+int randNum;
+int red = 0;
+int green = 0;
+int blue = 0;
+int delaysec = 500;
+
+int check_cds = 0;
+int check_color = 0;
+
+int mp3sec = 0;
+
+void setup() {
+  pinMode(S0, OUTPUT);
+  pinMode(S1, OUTPUT);
+  pinMode(S2, OUTPUT);
+  pinMode(S3, OUTPUT);
+
+  pinMode(sensorOut, INPUT);
+
+  digitalWrite(S0, HIGH);
+  digitalWrite(S1, LOW);
+
+  Serial.begin(9600);
+
+  pinMode(cds, INPUT);
+  pinMode(motorPin, OUTPUT);
+  servo1.attach(8);
+  servo2.attach(9);
+
+  myDFPlayer.begin(mySoftwareSerial);
+  myDFPlayer.volume(30);
+  mySoftwareSerial.begin(9600);
+}
+
+void loop() {
+  check_cds = 0;
+  check_color = 0;
+
+  int current_cds = cds();
+  int current_color = color();
+  if(current_cds == 1){
+    
+    while(current_cds == 1){
+      
+      digitalWrite(motorPin, HIGH);// 돈이 들어왔다고 판단되면 모터를 동작시킴 (흡입 동작)
+      current_cds = color();
+      current_cds = cds();
+    }
+    digitalWrite(motorPin, LOW);
+    delay(500);
+
+    servo_start();
+
+    if(current_color != 0){
+      audio(current_color);
+    }
+
+    servo_end();
+  }
+}
+
+int cds(){ //조도센서
+  int lightValue = analogRead(cds_pin); // 조도센서의 값을 읽음
+  Serial.println(lightValue); // 시리얼 모니터에 조도센서 값 출력 (디버깅용)
+
+  if (lightValue > threshold) {
+    check_cds = 1;
+    return check_cds;
+  }else{
+    check_cds = 0;
+    return check_cds;
+  }
+}
+
+int color(){ //컬러센서
+  digitalWrite(S2, LOW);
+  digitalWrite(S3, LOW);
+
+  red = pulseIn(sensorOut, LOW);
+
+  Serial.print("R = ");
+  Serial.print(red);
+
+  delay(delaysec);
+
+  digitalWrite(S2, HIGH);
+  digitalWrite(S3, HIGH);
+
+  green = pulseIn(sensorOut, LOW);
+
+  Serial.print(" G = ");
+  Serial.print(green);
+  delay(delaysec);
+
+  digitalWrite(S2, LOW);
+  digitalWrite(S3, HIGH);
+
+  blue = pulseIn(sensorOut, LOW);
+
+  Serial.print(" B = ");
+  Serial.println(blue);
+  delay(delaysec);
+
+  if(red < 1250 && red > 1215 && green < 505 && green > 485 && blue < 225 && blue > 215){ //1000
+    check_color = 1;
+  }else if(red < 165 && red > 155 && green < 555 && green > 530 && blue < 395 && blue > 365){ //5000
+    check_color = 2;
+  }else if(red < 690 && red > 670 && green < 340 && green > 325 && blue < 395 && blue > 380){ // 10000
+    check_color = 3;
+  }else if(red < 90 && red > 80 && green < 115 && green > 85 && blue < 190 && blue > 170){ // 50000
+    check_color = 4;
+  }else{
+    check_color = 0;
+  }
+}
+
+void servo_start(){ // 서보모터
+  servo1.write(60);
+  servo2.write(60);
+  delay(2000);
+}
+
+void servo_end(){
+  servo1.write(0);
+  servo2.write(0);
+  delay(500);
+}
+
+int audio(int color){ //오디오
+  Serial.println(color);
+  //특정 색 인식
+  if(color == 1){
+    randNum = 1;
+    mp3sec = 3;
+  }
+  else if(color == 2){
+    randNum = 2;
+    mp3sec = 6;
+  }
+  else if(color == 3){
+    randNum = 3;
+    mp3sec = 2;
+  }
+  else if(color == 4){
+    randNum = 4;
+    mp3sec = 5;
+  } 
+  myDFPlayer.play(randNum); 
+  delay(mp3sec);//파일 재생시간 이상의 delay로 설정할것
+
+  return 0;
+}
